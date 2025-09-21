@@ -40,6 +40,44 @@ KUNAL_PASSWORD=replace-with-secure
 VITE_API_BASE=http://localhost:4001
 ```
 
+## Deploy (Render + Vercel)
+
+### Backend (Render)
+1. Push repo to GitHub (already done).
+2. In Render → New → Blueprint → select this repo. It will read `render.yaml`.
+3. Set environment variables on the service created:
+	- `MONGODB_URI` = MongoDB Atlas connection string (or another reachable MongoDB)
+	- `JWT_SECRET` = same secret you use locally (long random string)
+	- `ARYAN_PASSWORD`, `KUNAL_PASSWORD` = initial passwords (used only if users missing)
+4. Deploy. Health check path: `/api/debug/collections`. Take note of the public URL.
+
+### Frontend (Vercel)
+1. In Vercel → New Project → import this GitHub repo.
+2. Project Settings:
+	- Root Directory: `client`
+	- Build Command: `npm run build`
+	- Output Directory: `dist`
+3. Environment Variables:
+	- `VITE_API_BASE` = your backend public origin (e.g., `https://auditions-scoring.onrender.com`)
+	  - Do NOT include `/api` — the client adds it automatically.
+4. Deploy. The SPA routing is configured via `client/vercel.json`.
+
+### Custom Domain (Vercel)
+- Add your domain in Project → Settings → Domains.
+- Either:
+  - Use Vercel nameservers, or
+  - Keep current DNS and add:
+	 - Apex (yourdomain.com) A → `76.76.21.21`
+	 - www CNAME → `cname.vercel-dns.com`
+
+### Optional: API subdomain
+- Create `api.yourdomain.com` as a CNAME to your backend host (Render hostname).
+- Update Vercel `VITE_API_BASE` to `https://api.yourdomain.com` and redeploy.
+
+### Smoke Test
+- Open your deployed site → Login as `Aryan / aryan123` (or updated).
+- Verify Students, Rounds, and Final Scores load and save.
+
 ## Monorepo Scripts
 - `npm run dev` — runs both client and server concurrently
 - `npm run build` — builds both
