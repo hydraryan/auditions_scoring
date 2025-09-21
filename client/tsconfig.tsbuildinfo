@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/context/authcontext.tsx","./src/pages/dashboardhome.tsx","./src/pages/finalscorespage.tsx","./src/pages/landingpage.tsx","./src/pages/loginpage.tsx","./src/pages/protectedlayout.tsx","./src/pages/roundpage.tsx","./src/pages/studentspage.tsx","./src/types/vite-env.d.ts"],"version":"5.9.2"}

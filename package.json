@@ -1,0 +1,24 @@
+{
+  "name": "auditions_scoring",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:client": "npm --workspace client run dev",
+    "dev:server": "npm --workspace server run dev",
+    "build": "npm --workspace client run build && npm --workspace server run build",
+    "lint": "npm --workspace client run lint && npm --workspace server run lint",
+    "format": "prettier --write .",
+    "install-all": "npm install --workspaces",
+    "typecheck": "npm --workspace client run typecheck && npm --workspace server run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "concurrently": "^8.2.2",
+    "prettier": "^3.3.3"
+  }
+}

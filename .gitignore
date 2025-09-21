@@ -1,0 +1,46 @@
+# Node / monorepo
+node_modules/
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+# Build outputs
+client/dist/
+server/dist/
+
+# Env files
+.env
+*.env.local
+client/.env*
+server/.env*
+
+# Vercel and editor
+.vercel/
+.vscode/
+
+# Logs
+*.log
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build output
+out/
+dist/
+.vite/
+coverage/
+
+# Env files
+.env
+.env.*
+
+# Editor
+.DS_Store
+.vscode/*.log
