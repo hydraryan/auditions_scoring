@@ -350,13 +350,12 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
             className="flex-1 max-w-md p-2 bg-neutral-900 border border-neutral-800 rounded"
             placeholder="Search by name, UID, or contact"
             value={searchText}
-            onChange={(e) => setSearchText((e.target as HTMLInputElement).value)}
+            onChange={(e) => {
+              const v = (e.target as HTMLInputElement).value;
+              setSearchText(v);
+              setAppliedQuery(v);
+            }}
           />
-          <button
-            onClick={() => setAppliedQuery(searchText)}
-            disabled={dirty}
-            className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60"
-          >Search</button>
           {appliedQuery && (
             <button
               onClick={() => { setSearchText(''); setAppliedQuery(''); }}

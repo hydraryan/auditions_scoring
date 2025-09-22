@@ -88,9 +88,12 @@ export default function FinalScoresPage() {
             className="w-64 max-w-[70vw] p-2 bg-neutral-900 border border-neutral-800 rounded"
             placeholder="Search by name, UID, or contact"
             value={searchText}
-            onChange={(e) => setSearchText((e.target as HTMLInputElement).value)}
+            onChange={(e) => {
+              const v = (e.target as HTMLInputElement).value;
+              setSearchText(v);
+              setAppliedQuery(v);
+            }}
           />
-          <button onClick={() => setAppliedQuery(searchText)} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">Search</button>
           {appliedQuery && (
             <button onClick={() => { setAppliedQuery(''); setSearchText(''); }} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">Clear</button>
           )}
