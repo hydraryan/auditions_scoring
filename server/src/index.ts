@@ -9,6 +9,7 @@ import authRouter from './routes/auth';
 import studentsRouter from './routes/students';
 import scoresRouter from './routes/scores';
 import debugRouter from './routes/debug';
+import publicRouter from './routes/public';
 import { ensureRoundsInitialized } from './utils/seed';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/debug', debugRouter);
+app.use('/api/public', publicRouter);
 
 // Public health endpoint for platform health checks (no auth)
 app.get('/api/health', (_req, res) => {
