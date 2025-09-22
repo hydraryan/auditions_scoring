@@ -229,7 +229,7 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
       await api.delete(`/scores/round/${round}/student/${selectedId}`);
       const refreshed = await api.get(`/scores/round/${round}`);
       setStudents(refreshed.data);
-      setToast({ type: 'success', message: 'Scores reset' });
+  setToast({ type: 'success', message: 'Marks reset to 0' });
       setTimeout(() => setToast(null), 1500);
     } catch (e) {
       console.error(e);

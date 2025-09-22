@@ -128,38 +128,33 @@ router.delete('/round/:round/student/:id', async (req: AuthRequest, res) => {
   if (!st) return res.status(404).json({ message: 'Student not found' });
   const isAryan = req.user?.username === 'Aryan';
 
-  // find round doc
-  let doc:
-    | (typeof Round1Score extends new (...args: any) => infer T ? T : any)
-    | null = null as any;
-  if (round === 1) doc = (await Round1Score.findOne({ studentId: st._id })) as any;
-  else if (round === 2) doc = (await Round2Score.findOne({ studentId: st._id })) as any;
-  else doc = (await Round3Score.findOne({ studentId: st._id })) as any;
-
-  if (doc) {
-    if (isAryan) {
-      (doc as any).aryan = (doc as any).aryan || {};
-      delete (doc as any).aryan.bodyExpressions;
-      delete (doc as any).aryan.confidence;
-    } else {
-      (doc as any).kunal = (doc as any).kunal || {};
-      delete (doc as any).kunal.dialogue;
-      delete (doc as any).kunal.creativity;
-    }
-    await (doc as any).save();
-  }
+  // set zeros for the current director on the round document (upsert if missing)
+  const setPaths: any = isAryan
+    ? { 'aryan.bodyExpressions': 0, 'aryan.confidence': 0 }
+    : { 'kunal.dialogue': 0, 'kunal.creativity': 0 };
+  if (round === 1) await Round1Score.updateOne({ studentId: st._id }, { $set: { round, studentUid: st.uid, ...setPaths } }, { upsert: true });
+  else if (round === 2) await Round2Score.updateOne({ studentId: st._id }, { $set: { round, studentUid: st.uid, ...setPaths } }, { upsert: true });
+  else await Round3Score.updateOne({ studentId: st._id }, { $set: { round, studentUid: st.uid, ...setPaths } }, { upsert: true });
 
   // Update embedded snapshot
   const embedded = st.scores.find((x) => x.round === round) as any;
   if (embedded) {
-    if (doc) {
-      embedded.aryan = (doc as any).aryan || {};
-      embedded.kunal = (doc as any).kunal || {};
+    if (isAryan) {
+      embedded.aryan = embedded.aryan || {};
+      embedded.aryan.bodyExpressions = 0;
+      embedded.aryan.confidence = 0;
     } else {
-      // no round doc, clear just current director in embedded
-      if (isAryan) embedded.aryan = {};
-      else embedded.kunal = {};
+      embedded.kunal = embedded.kunal || {};
+      embedded.kunal.dialogue = 0;
+      embedded.kunal.creativity = 0;
     }
+  } else {
+    // create embedded round snapshot if missing
+    (st as any).scores.push({
+      round,
+      aryan: isAryan ? { bodyExpressions: 0, confidence: 0 } : {},
+      kunal: !isAryan ? { dialogue: 0, creativity: 0 } : {},
+    });
   }
   await st.save();
   res.json({ _id: st._id, name: st.name, uid: st.uid, contact: st.contact, scores: st.scores });
