@@ -49,5 +49,10 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// Simple root route for sanity check
+app.get('/', (_req, res) => {
+  res.type('text').send('Auditions Scoring API is running. See /api/health');
+});
+
 const PORT = Number(process.env.PORT || 4001);
 app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
