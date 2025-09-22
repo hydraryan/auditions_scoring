@@ -23,12 +23,12 @@ export interface IStudent extends Document {
 const RoundSchema = new Schema<IRoundScores>({
   round: { type: Number, required: true },
   aryan: {
-    bodyExpressions: { type: Number, min: 0, max: 10, default: 0 },
-    confidence: { type: Number, min: 0, max: 10, default: 0 },
+    bodyExpressions: { type: Number, min: 0, max: 10 },
+    confidence: { type: Number, min: 0, max: 10 },
   },
   kunal: {
-    dialogue: { type: Number, min: 0, max: 10, default: 0 },
-    creativity: { type: Number, min: 0, max: 10, default: 0 },
+    dialogue: { type: Number, min: 0, max: 10 },
+    creativity: { type: Number, min: 0, max: 10 },
   },
 });
 

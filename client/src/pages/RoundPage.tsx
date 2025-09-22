@@ -24,6 +24,8 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
   const [saving, setSaving] = useState(false);
   const [unscoredOnly, setUnscoredOnly] = useState<boolean>(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [searchText, setSearchText] = useState<string>('');
+  const [appliedQuery, setAppliedQuery] = useState<string>('');
 
   useEffect(() => {
     (async () => {
@@ -40,15 +42,46 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
   const isUnscoredForDirector = (s: Student) => {
     const sc = s.scores.find((x) => x.round === round);
     if (!sc) return true;
-    if (isAryan) return sc.aryan.bodyExpressions == null || sc.aryan.confidence == null;
-    return sc.kunal.dialogue == null || sc.kunal.creativity == null;
+    if (isAryan) {
+      const be = sc.aryan?.bodyExpressions;
+      const cf = sc.aryan?.confidence;
+      // unscored if missing or 0 or less
+      return be == null || cf == null || be <= 0 || cf <= 0;
+    }
+    const dl = sc.kunal?.dialogue;
+    const cr = sc.kunal?.creativity;
+    return dl == null || cr == null || dl <= 0 || cr <= 0;
   };
 
   // filtered list per toggle
-  const filteredStudents = useMemo(
-    () => (unscoredOnly ? students.filter((s) => isUnscoredForDirector(s)) : students),
-    [students, unscoredOnly]
-  );
+  const filteredStudents = useMemo(() => {
+    const base = unscoredOnly ? students.filter((s) => isUnscoredForDirector(s)) : students;
+    const q = appliedQuery.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((s) => [s.name, s.uid, s.contact].some((v) => (v || '').toLowerCase().includes(q)));
+  }, [students, unscoredOnly, appliedQuery]);
+
+  // highlight helpers (for search UI)
+  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const getHighlighted = (text: string, q: string) => {
+    if (!q) return text;
+    const safe = escapeRegExp(q);
+    const re = new RegExp(`(${safe})`, 'ig');
+    const parts = text.split(re);
+    return (
+      <>
+        {parts.map((part, i) =>
+          re.test(part) ? (
+            <mark key={i} className="bg-yellow-800/60 text-yellow-100 px-0.5 rounded">
+              {part}
+            </mark>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </>
+    );
+  };
 
   // compute progress for current director
   const scoredCount = useMemo(
@@ -81,13 +114,13 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
     if (!sc) return;
     if (isAryan) {
       setForm({
-        bodyExpressions: sc.aryan.bodyExpressions ?? '',
-        confidence: sc.aryan.confidence ?? '',
+        bodyExpressions: sc.aryan?.bodyExpressions ?? '',
+        confidence: sc.aryan?.confidence ?? '',
       });
     } else {
       setForm({
-        dialogue: sc.kunal.dialogue ?? '',
-        creativity: sc.kunal.creativity ?? '',
+        dialogue: sc.kunal?.dialogue ?? '',
+        creativity: sc.kunal?.creativity ?? '',
       });
     }
   }, [selectedId, students, round, isAryan]);
@@ -103,8 +136,8 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
     const sc = s.scores.find((x) => x.round === round);
     if (!sc) return null;
     return isAryan
-      ? { bodyExpressions: sc.aryan.bodyExpressions ?? '', confidence: sc.aryan.confidence ?? '' }
-      : { dialogue: sc.kunal.dialogue ?? '', creativity: sc.kunal.creativity ?? '' };
+      ? { bodyExpressions: sc.aryan?.bodyExpressions ?? '', confidence: sc.aryan?.confidence ?? '' }
+      : { dialogue: sc.kunal?.dialogue ?? '', creativity: sc.kunal?.creativity ?? '' };
   }, [selectedId, students, round, isAryan]);
 
   // dirty flag: true if form differs from savedForSelected
@@ -117,6 +150,14 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
     const sf = savedForSelected as { dialogue: number | ''; creativity: number | '' };
     return (form.dialogue ?? '') !== sf.dialogue || (form.creativity ?? '') !== sf.creativity;
   }, [form, savedForSelected, isAryan]);
+
+  // whether the currently selected candidate is unscored for this director
+  const unscoredSelected = useMemo(() => {
+    if (!selectedId) return false;
+    const s = students.find((x) => x._id === selectedId);
+    if (!s) return false;
+    return isUnscoredForDirector(s);
+  }, [selectedId, students, isAryan]);
 
   const resetToSaved = () => {
     if (!savedForSelected) return;
@@ -131,8 +172,8 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
 
   const handleSubmit = async () => {
     if (!selectedId) return;
-    const payload: any = {};
-    const isValidScore = (v: number | '') => v !== '' && v >= 0 && v <= 10;
+  const payload: any = {};
+  const isValidScore = (v: number | '') => v !== '' && v > 0 && v <= 10; // 0 is considered unscored
     if (isAryan) {
       if (!isValidScore(form.bodyExpressions ?? '') || !isValidScore(form.confidence ?? '')) {
         setToast({ type: 'error', message: 'Please enter both scores between 0 and 10.' });
@@ -151,24 +192,17 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
     try {
       setSaving(true);
       await api.put(`/scores/round/${round}/student/${selectedId}`, payload);
-      // update local state
-      setStudents((prev) =>
-        prev.map((s) =>
-          s._id === selectedId
-            ? {
-                ...s,
-                scores: s.scores.map((sc) =>
-                  sc.round === round
-                    ? isAryan
-                      ? { ...sc, aryan: { ...sc.aryan, ...payload } }
-                      : { ...sc, kunal: { ...sc.kunal, ...payload } }
-                    : sc
-                ),
-              }
-            : s
-        )
-      );
-      setToast({ type: 'success', message: 'Scores saved' });
+      // refetch latest round data to ensure accurate view
+      const refreshed = await api.get(`/scores/round/${round}`);
+      setStudents(refreshed.data);
+      // if we were showing only unscored and this candidate is now scored, keep them visible
+      try {
+        const updated = (refreshed.data as typeof students).find((s: any) => s._id === selectedId);
+        if (updated && unscoredOnly && !isUnscoredForDirector(updated as any)) {
+          setUnscoredOnly(false);
+        }
+      } catch {}
+  setToast({ type: 'success', message: 'Scores submitted' });
       // clear toast after a short delay
       setTimeout(() => setToast(null), 1500);
       // auto-advance to next unscored candidate, else next in list
@@ -219,8 +253,14 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
       const isTyping = !!active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.getAttribute('contenteditable') === 'true');
       if (isTyping) {
         if (e.key === 'Enter' && !e.shiftKey && selectedId) {
-          e.preventDefault();
-          handleSubmit();
+          // Only submit on Enter for numeric score inputs or textareas, not for search text box
+          const tag = (active!.tagName || '').toUpperCase();
+          const type = (active as HTMLInputElement).type;
+          const isScoreField = (tag === 'INPUT' && type === 'number') || tag === 'TEXTAREA';
+          if (isScoreField) {
+            e.preventDefault();
+            handleSubmit();
+          }
         }
         return;
       }
@@ -287,11 +327,14 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
               className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 disabled:opacity-60"
             >
               <option value="">-- Choose a candidate --</option>
-              {filteredStudents.map((s, i) => (
-                <option key={s._id} value={s._id}>
-                  {i + 1}. {s.name} ({s.uid})
-                </option>
-              ))}
+              {filteredStudents.map((s, i) => {
+                const unscored = isUnscoredForDirector(s);
+                return (
+                  <option key={s._id} value={s._id}>
+                    {i + 1}. {s.name} ({s.uid}) {unscored ? '- Unscored' : '- Scored'}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="flex items-center gap-2 pb-1">
@@ -302,6 +345,58 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
             <button onClick={nextCandidate} disabled={dirty} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60">Next →</button>
           </div>
         </div>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            className="flex-1 max-w-md p-2 bg-neutral-900 border border-neutral-800 rounded"
+            placeholder="Search by name, UID, or contact"
+            value={searchText}
+            onChange={(e) => setSearchText((e.target as HTMLInputElement).value)}
+          />
+          <button
+            onClick={() => setAppliedQuery(searchText)}
+            disabled={dirty}
+            className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60"
+          >Search</button>
+          {appliedQuery && (
+            <button
+              onClick={() => { setSearchText(''); setAppliedQuery(''); }}
+              disabled={dirty}
+              className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-60"
+            >Clear</button>
+          )}
+          <div className="text-xs text-neutral-400">{filteredStudents.length} of {students.length}</div>
+        </div>
+        {appliedQuery.trim() && (
+          <div className="mt-2 bg-neutral-900 border border-neutral-800 rounded">
+            <div className="px-2 py-1 text-xs text-neutral-400 flex justify-between">
+              <span>Matches</span>
+              <span>{filteredStudents.length}</span>
+            </div>
+            <ul className="max-h-56 overflow-auto divide-y divide-neutral-800">
+              {filteredStudents.map((s, i) => {
+                const unscored = isUnscoredForDirector(s);
+                return (
+                  <li
+                    key={s._id}
+                    className={`p-2 flex items-center justify-between ${dirty ? 'opacity-60 cursor-not-allowed' : 'hover:bg-neutral-800 cursor-pointer'}`}
+                    onClick={() => { if (!dirty) setSelectedId(s._id); }}
+                    title={dirty ? 'Save or discard changes to switch' : ''}
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm text-neutral-200">
+                        <span className="text-neutral-300 mr-1">{i + 1}.</span> {getHighlighted(s.name, appliedQuery)}
+                      </div>
+                      <div className="truncate text-xs text-neutral-500">UID: {getHighlighted(s.uid, appliedQuery)} • {getHighlighted(s.contact || '', appliedQuery)}</div>
+                    </div>
+                    <div className={`ml-3 shrink-0 text-xs px-2 py-0.5 rounded ${unscored ? 'bg-neutral-800 text-neutral-300' : 'bg-green-900/30 text-green-300'}`}>
+                      {unscored ? 'Unscored' : 'Scored'}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         <div className="mt-2 flex items-center justify-between text-xs text-neutral-500">
           <div>Shortcuts: ←/→ navigate, Enter saves while typing, Ctrl+S saves.</div>
           <div className="text-neutral-400">
@@ -331,10 +426,10 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
             ? (Number(form.bodyExpressions || 0) + Number(form.confidence || 0))
             : (Number(form.dialogue || 0) + Number(form.creativity || 0));
           const combinedTotal =
-            (Number(sc.aryan.bodyExpressions || 0) + Number(sc.aryan.confidence || 0) + Number(sc.kunal.dialogue || 0) + Number(sc.kunal.creativity || 0)) -
+            (Number(sc.aryan?.bodyExpressions || 0) + Number(sc.aryan?.confidence || 0) + Number(sc.kunal?.dialogue || 0) + Number(sc.kunal?.creativity || 0)) -
             (isAryan
-              ? (Number(sc.aryan.bodyExpressions || 0) + Number(sc.aryan.confidence || 0))
-              : (Number(sc.kunal.dialogue || 0) + Number(sc.kunal.creativity || 0))) +
+              ? (Number(sc.aryan?.bodyExpressions || 0) + Number(sc.aryan?.confidence || 0))
+              : (Number(sc.kunal?.dialogue || 0) + Number(sc.kunal?.creativity || 0))) +
             directorTotal;
           return (
             <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
@@ -345,27 +440,14 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
                 <div>
                   {dirty ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-900/40 text-yellow-300">● Editing…</span>
+                  ) : unscoredSelected ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">Unscored</span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 text-green-300">✔ Saved</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-900/30 text-green-300">✔ Scored</span>
                   )}
                 </div>
               </div>
-              {dirty && (
-                <div className="mb-3 flex items-center justify-between text-xs bg-neutral-900 border border-neutral-800 rounded p-2">
-                  <div className="text-neutral-300">You have unsaved changes.</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={resetToSaved}
-                      className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
-                    >Discard</button>
-                    <button
-                      onClick={handleSubmit}
-                      disabled={saving}
-                      className="px-2 py-1 rounded bg-red-600 hover:bg-red-500 disabled:opacity-60"
-                    >Save</button>
-                  </div>
-                </div>
-              )}
+              {/* No extra controls while editing; only a single Submit button below */}
               {isAryan ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -448,29 +530,21 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
                   <span className="mx-2">•</span>
                   Combined Total: <span className="text-white font-semibold">{combinedTotal}</span>
                 </div>
-                <button
-                  onClick={handleSubmit}
-                  disabled={
-                    saving ||
-                    (isAryan
-                      ? (form.bodyExpressions === '' || form.confidence === '' || (form.bodyExpressions as number) < 0 || (form.bodyExpressions as number) > 10 || (form.confidence as number) < 0 || (form.confidence as number) > 10)
-                      : (form.dialogue === '' || form.creativity === '' || (form.dialogue as number) < 0 || (form.dialogue as number) > 10 || (form.creativity as number) < 0 || (form.creativity as number) > 10)
-                    )
-                  }
-                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 disabled:opacity-60"
-                >
-                  {saving ? 'Saving…' : 'Save Scores'}
-                </button>
-                <button onClick={() => {
-                  // jump to next unscored candidate quickly
-                  const pool = filteredStudents.length ? filteredStudents : students;
-                  const after = pool.slice(currentIndex + 1).concat(pool.slice(0, currentIndex + 1));
-                  const next = after.find((s) => isUnscoredForDirector(s));
-                  if (next && !dirty) setSelectedId(next._id);
-                }}
-                  className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 ml-2"
-                  disabled={dirty}
-                >Next Unscored →</button>
+                {(unscoredSelected || dirty) && (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={
+                      saving ||
+                      (isAryan
+                        ? (form.bodyExpressions === '' || form.confidence === '' || (form.bodyExpressions as number) <= 0 || (form.bodyExpressions as number) > 10 || (form.confidence as number) <= 0 || (form.confidence as number) > 10)
+                        : (form.dialogue === '' || form.creativity === '' || (form.dialogue as number) <= 0 || (form.dialogue as number) > 10 || (form.creativity as number) <= 0 || (form.creativity as number) > 10)
+                      )
+                    }
+                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 disabled:opacity-60"
+                  >
+                    {saving ? 'Submitting…' : 'Submit'}
+                  </button>
+                )}
               </div>
               {toast && (
                 <div className={`mt-3 text-sm ${toast.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>{toast.message}</div>

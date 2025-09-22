@@ -61,9 +61,7 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
         { uid: r.UID },
         {
           $setOnInsert: {
-            name: r.Name || 'Unknown',
             uid: r.UID,
-            contact: r.Contact || '',
             scores: [1, 2, 3].map((rd) => ({ round: rd })),
           },
           $set: {
@@ -78,6 +76,51 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   } catch (e) {
     res.status(400).json({ message: 'Parse error' });
   }
+});
+
+// Quick bulk add via comma-separated text
+// Accepts JSON body: { text: string }
+// Each entry can be on a new line or separated by semicolons; fields separated by commas:
+//   Name, UID, Contact(optional)
+router.post('/bulk-text', async (req, res) => {
+  const { text } = req.body as { text?: string };
+  if (!text || !text.trim()) return res.status(400).json({ message: 'Text required' });
+  const entries = text
+    .split(/\r?\n|;/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let processed = 0;
+  let upserts = 0;
+  let skipped = 0;
+  for (const line of entries) {
+    processed++;
+    const parts = line
+      .split(',')
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    if (parts.length < 2) {
+      skipped++;
+      continue; // need at least Name, UID
+    }
+    const [name, uid, contact] = parts as [string, string, string?];
+    if (!uid) { skipped++; continue; }
+    const result = await Student.updateOne(
+      { uid },
+      {
+        $setOnInsert: {
+          uid,
+          scores: [1, 2, 3].map((rd) => ({ round: rd })),
+        },
+        $set: {
+          name: name || 'Unknown',
+          contact: contact || '',
+        },
+      },
+      { upsert: true }
+    );
+    if ((result as any).upsertedCount === 1) upserts++;
+  }
+  res.json({ processed, upserts, skipped });
 });
 
 export default router;

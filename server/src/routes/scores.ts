@@ -122,14 +122,13 @@ router.put('/round/:round/student/:id', async (req: AuthRequest, res) => {
 });
 
 router.get('/final', async (_req, res) => {
-  const [students, finals, r1, r2, r3] = await Promise.all([
-    Student.find(),
-    FinalScore.find(),
+  // Always compute live totals from round documents to reflect the latest scores
+  const [students, r1, r2, r3] = await Promise.all([
+    Student.find().sort({ name: 1 }),
     Round1Score.find(),
     Round2Score.find(),
     Round3Score.find(),
   ]);
-  const fMap = new Map(finals.map((f) => [String(f.studentId), f]));
   const r1Map = new Map(r1.map((d: any) => [String(d.studentId), d]));
   const r2Map = new Map(r2.map((d: any) => [String(d.studentId), d]));
   const r3Map = new Map(r3.map((d: any) => [String(d.studentId), d]));
@@ -143,15 +142,14 @@ router.get('/final', async (_req, res) => {
   };
 
   const rows = students.map((s) => {
-    const fs = fMap.get(String(s._id));
     const d1 = r1Map.get(String(s._id));
     const d2 = r2Map.get(String(s._id));
     const d3 = r3Map.get(String(s._id));
-    const r1t = fs?.round1 ?? sumDoc(d1);
-    const r2t = fs?.round2 ?? sumDoc(d2);
-    const r3t = fs?.round3 ?? sumDoc(d3);
-    const grandTotal = fs?.grandTotal ?? r1t + r2t + r3t;
-    const average = fs?.average ?? grandTotal / 3;
+    const r1t = sumDoc(d1);
+    const r2t = sumDoc(d2);
+    const r3t = sumDoc(d3);
+    const grandTotal = r1t + r2t + r3t;
+    const average = grandTotal / 3;
     return {
       _id: s._id,
       name: s.name,
@@ -169,24 +167,27 @@ router.get('/final', async (_req, res) => {
 
 // Export Excel with rounds and final totals
 router.get('/export.xlsx', async (_req, res) => {
-  const [students, r1, r2, r3, finals] = await Promise.all([
+  // Export live-computed totals to ensure accuracy
+  const [students, r1, r2, r3] = await Promise.all([
     Student.find().sort({ name: 1 }),
     Round1Score.find(),
     Round2Score.find(),
     Round3Score.find(),
-    FinalScore.find(),
   ]);
   const r1Map = new Map(r1.map((d: any) => [String(d.studentId), d]));
   const r2Map = new Map(r2.map((d: any) => [String(d.studentId), d]));
   const r3Map = new Map(r3.map((d: any) => [String(d.studentId), d]));
-  const fMap = new Map(finals.map((f: any) => [String(f.studentId), f]));
+  const val = (n: any) => (typeof n === 'number' ? n : 0);
 
   const rows = students.map((s) => {
     const d1: any = r1Map.get(String(s._id)) || {};
     const d2: any = r2Map.get(String(s._id)) || {};
     const d3: any = r3Map.get(String(s._id)) || {};
-    const fs: any = fMap.get(String(s._id)) || {};
-    const val = (n: any) => (typeof n === 'number' ? n : 0);
+    const r1Total = val(d1.aryan?.bodyExpressions) + val(d1.aryan?.confidence) + val(d1.kunal?.dialogue) + val(d1.kunal?.creativity);
+    const r2Total = val(d2.aryan?.bodyExpressions) + val(d2.aryan?.confidence) + val(d2.kunal?.dialogue) + val(d2.kunal?.creativity);
+    const r3Total = val(d3.aryan?.bodyExpressions) + val(d3.aryan?.confidence) + val(d3.kunal?.dialogue) + val(d3.kunal?.creativity);
+    const grand = r1Total + r2Total + r3Total;
+    const avg = grand / 3;
     return {
       Name: s.name,
       UID: s.uid,
@@ -196,22 +197,22 @@ router.get('/export.xlsx', async (_req, res) => {
       'R1 Confidence': val(d1.aryan?.confidence),
       'R1 Dialogue': val(d1.kunal?.dialogue),
       'R1 Creativity': val(d1.kunal?.creativity),
-      'R1 Total': val(fs.round1),
+      'R1 Total': r1Total,
       // Round 2
       'R2 BodyExpressions': val(d2.aryan?.bodyExpressions),
       'R2 Confidence': val(d2.aryan?.confidence),
       'R2 Dialogue': val(d2.kunal?.dialogue),
       'R2 Creativity': val(d2.kunal?.creativity),
-      'R2 Total': val(fs.round2),
+      'R2 Total': r2Total,
       // Round 3
       'R3 BodyExpressions': val(d3.aryan?.bodyExpressions),
       'R3 Confidence': val(d3.aryan?.confidence),
       'R3 Dialogue': val(d3.kunal?.dialogue),
       'R3 Creativity': val(d3.kunal?.creativity),
-      'R3 Total': val(fs.round3),
+      'R3 Total': r3Total,
       // Finals
-      'Grand Total': val(fs.grandTotal),
-      Average: val(fs.average),
+      'Grand Total': grand,
+      Average: avg,
     };
   });
 

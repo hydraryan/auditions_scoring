@@ -1,25 +1,9 @@
+###########################################################
 # Node / monorepo
 node_modules/
-npm-debug.log*
 pnpm-lock.yaml
 yarn.lock
 
-# Build outputs
-client/dist/
-server/dist/
-
-# Env files
-.env
-*.env.local
-client/.env*
-server/.env*
-
-# Vercel and editor
-.vercel/
-.vscode/
-
-# Logs
-*.log
 # Logs
 logs
 *.log
@@ -27,20 +11,29 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.vscode/*.log
 
-# Dependency directories
-node_modules/
-
-# Build output
+# Build outputs
+client/dist/
+server/dist/
 out/
 dist/
 .vite/
 coverage/
 
-# Env files
+# Vercel and editor
+.vercel/
+.vscode/
+.DS_Store
+
+# Env files (ignore real env files)
 .env
 .env.*
+*.env.local
+client/.env*
+server/.env*
 
-# Editor
-.DS_Store
-.vscode/*.log
+# Allow example env files (must be after the ignore rules above)
+!.env.example
+!client/.env.example
+!server/.env.example

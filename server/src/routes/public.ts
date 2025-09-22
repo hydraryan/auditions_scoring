@@ -28,7 +28,7 @@ router.post('/students/ingest', async (req, res) => {
     const result = await Student.updateOne(
       { uid },
       {
-        $setOnInsert: { name, uid, contact: contact || '', scores: baseScores },
+        $setOnInsert: { uid, scores: baseScores },
         $set: { name, contact: contact || '' },
       },
       { upsert: true }
