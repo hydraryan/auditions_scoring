@@ -221,6 +221,25 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
     }
   };
 
+  const handleReset = async () => {
+    if (!selectedId) return;
+    if (!confirm('Reset your scores for this candidate on this round? This will mark them Unscored.')) return;
+    try {
+      setSaving(true);
+      await api.delete(`/scores/round/${round}/student/${selectedId}`);
+      const refreshed = await api.get(`/scores/round/${round}`);
+      setStudents(refreshed.data);
+      setToast({ type: 'success', message: 'Scores reset' });
+      setTimeout(() => setToast(null), 1500);
+    } catch (e) {
+      console.error(e);
+      setToast({ type: 'error', message: 'Failed to reset' });
+      setTimeout(() => setToast(null), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // navigation helpers
   const currentIndex = useMemo(() => filteredStudents.findIndex((s) => s._id === selectedId), [filteredStudents, selectedId]);
   const prevCandidate = () => {
@@ -543,6 +562,13 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
                   >
                     {saving ? 'Submitting…' : 'Submit'}
                   </button>
+                )}
+                {!unscoredSelected && !dirty && (
+                  <button
+                    onClick={handleReset}
+                    disabled={saving}
+                    className="px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 ml-2 disabled:opacity-60"
+                  >Reset Marks</button>
                 )}
               </div>
               {toast && (

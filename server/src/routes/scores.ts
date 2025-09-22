@@ -121,6 +121,50 @@ router.put('/round/:round/student/:id', async (req: AuthRequest, res) => {
   res.json({ _id: st._id, name: st.name, uid: st.uid, contact: st.contact, scores: st.scores });
 });
 
+// Reset current director's scores for a student in a round (makes candidate unscored for that director)
+router.delete('/round/:round/student/:id', async (req: AuthRequest, res) => {
+  const round = Number(req.params.round) as 1 | 2 | 3;
+  const st = await Student.findById(req.params.id);
+  if (!st) return res.status(404).json({ message: 'Student not found' });
+  const isAryan = req.user?.username === 'Aryan';
+
+  // find round doc
+  let doc:
+    | (typeof Round1Score extends new (...args: any) => infer T ? T : any)
+    | null = null as any;
+  if (round === 1) doc = (await Round1Score.findOne({ studentId: st._id })) as any;
+  else if (round === 2) doc = (await Round2Score.findOne({ studentId: st._id })) as any;
+  else doc = (await Round3Score.findOne({ studentId: st._id })) as any;
+
+  if (doc) {
+    if (isAryan) {
+      (doc as any).aryan = (doc as any).aryan || {};
+      delete (doc as any).aryan.bodyExpressions;
+      delete (doc as any).aryan.confidence;
+    } else {
+      (doc as any).kunal = (doc as any).kunal || {};
+      delete (doc as any).kunal.dialogue;
+      delete (doc as any).kunal.creativity;
+    }
+    await (doc as any).save();
+  }
+
+  // Update embedded snapshot
+  const embedded = st.scores.find((x) => x.round === round) as any;
+  if (embedded) {
+    if (doc) {
+      embedded.aryan = (doc as any).aryan || {};
+      embedded.kunal = (doc as any).kunal || {};
+    } else {
+      // no round doc, clear just current director in embedded
+      if (isAryan) embedded.aryan = {};
+      else embedded.kunal = {};
+    }
+  }
+  await st.save();
+  res.json({ _id: st._id, name: st.name, uid: st.uid, contact: st.contact, scores: st.scores });
+});
+
 router.get('/final', async (_req, res) => {
   // Always compute live totals from round documents to reflect the latest scores
   const [students, r1, r2, r3] = await Promise.all([
