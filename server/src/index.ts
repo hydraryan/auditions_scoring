@@ -37,5 +37,17 @@ app.use('/api/students', studentsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/debug', debugRouter);
 
+// Public health endpoint for platform health checks (no auth)
+app.get('/api/health', (_req, res) => {
+  const db = mongoose.connection;
+  const dbConnected = db.readyState === 1; // 1 = connected
+  res.json({
+    ok: true,
+    dbConnected,
+    database: (db as any).db?.databaseName || null,
+    ts: new Date().toISOString(),
+  });
+});
+
 const PORT = Number(process.env.PORT || 4001);
 app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
