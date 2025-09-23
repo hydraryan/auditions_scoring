@@ -21,66 +21,8 @@ if (!process.env.JWT_SECRET || !process.env.ARYAN_PASSWORD || !process.env.KUNAL
 
 const app = express();
 
-// CORS: allow only configured origins (supports wildcards like https://*.vercel.app)
-// Defaults cover local dev, typical Vercel deployments, and the promooora.in domain used for this app.
-const defaultOrigins = [
-  'http://localhost:5173',
-  'https://*.vercel.app',
-  'https://promooora.in',
-  'https://www.promooora.in',
-];
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-const origins = allowedOrigins.length ? allowedOrigins : defaultOrigins;
-
-function normalize(url: string) {
-  return url.replace(/\/$/, '');
-}
-
-function wildcardToRegex(pattern: string) {
-  // Escape regex special chars, then replace '*' with '.*'
-  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
-  return new RegExp(`^${escaped}$`);
-}
-
-function isOriginAllowed(origin: string | undefined) {
-  // Escape hatch for incidents: allow all when explicitly enabled
-  if ((process.env.CORS_ALLOW_ALL || '').toLowerCase() === 'true') return true;
-  if (!origin) return true; // allow same-origin/no-origin (like curl, mobile apps)
-  const o = normalize(origin);
-  for (const entry of origins) {
-    const p = normalize(entry);
-    if (!p.includes('*')) {
-      if (o === p) return true;
-      continue;
-    }
-    try {
-      const rx = wildcardToRegex(p);
-      if (rx.test(o)) return true;
-    } catch {
-      // ignore bad patterns
-    }
-  }
-  return false;
-}
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) return callback(null, true);
-      // Helpful log for debugging CORS issues in production
-      try {
-        console.warn('[CORS] Blocked request from origin:', origin, 'Allowed patterns:', origins);
-      } catch {}
-      return callback(new Error('CORS: origin not allowed'));
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+// CORS: fully permissive (reflects request origin and allows credentials)
+app.use(cors({ origin: true, credentials: true }));
 
 // Helmet with CSP in production
 app.use(
