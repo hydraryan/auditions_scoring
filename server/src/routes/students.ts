@@ -4,6 +4,8 @@ import { parse } from 'csv-parse/sync';
 import XLSX from 'xlsx';
 import { Student } from '../models/Student';
 import { requireAuth } from '../middleware/auth';
+import { z } from 'zod';
+import { validate } from '../utils/validate';
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
@@ -15,7 +17,13 @@ router.get('/', async (_req, res) => {
   res.json(students);
 });
 
-router.post('/', async (req, res) => {
+const createSchema = z.object({
+  name: z.string().min(1),
+  uid: z.string().min(1),
+  contact: z.string().min(1),
+});
+
+router.post('/', validate(createSchema), async (req, res) => {
   const { name, uid, contact } = req.body as any;
   if (!name || !uid || !contact) return res.status(400).json({ message: 'Missing fields' });
   const exists = await Student.findOne({ uid });
@@ -24,7 +32,12 @@ router.post('/', async (req, res) => {
   res.status(201).json(st);
 });
 
-router.put('/:id', async (req, res) => {
+const updateParams = z.object({ id: z.string().min(1) });
+const updateBody = z
+  .object({ name: z.string().min(1).optional(), uid: z.string().min(1).optional(), contact: z.string().min(1).optional() })
+  .refine((data) => Object.keys(data).length > 0, { message: 'No fields to update' });
+
+router.put('/:id', validate(updateParams, 'params'), validate(updateBody), async (req, res) => {
   const { name, uid, contact } = req.body as any;
   const st = await Student.findByIdAndUpdate(
     req.params.id,
@@ -82,7 +95,9 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
 // Accepts JSON body: { text: string }
 // Each entry can be on a new line or separated by semicolons; fields separated by commas:
 //   Name, UID, Contact(optional)
-router.post('/bulk-text', async (req, res) => {
+const bulkTextSchema = z.object({ text: z.string().min(1) });
+
+router.post('/bulk-text', validate(bulkTextSchema), async (req, res) => {
   const { text } = req.body as { text?: string };
   if (!text || !text.trim()) return res.status(400).json({ message: 'Text required' });
   const entries = text

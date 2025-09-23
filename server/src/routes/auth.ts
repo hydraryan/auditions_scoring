@@ -3,10 +3,17 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User } from '../models/User';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { z } from 'zod';
+import { validate } from '../utils/validate';
 
 const router = Router();
 
-router.post('/login', async (req, res) => {
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+router.post('/login', validate(loginSchema), async (req, res) => {
   const { username, password } = req.body as { username: string; password: string };
   if (!username || !password) return res.status(400).json({ message: 'Missing credentials' });
 
@@ -22,10 +29,13 @@ router.post('/login', async (req, res) => {
 });
 
 // Change password for the logged-in user
-router.put('/change-password', requireAuth, async (req: AuthRequest, res) => {
+const changePwdSchema = z.object({
+  oldPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+router.put('/change-password', requireAuth, validate(changePwdSchema), async (req: AuthRequest, res) => {
   const { oldPassword, newPassword } = req.body as { oldPassword: string; newPassword: string };
-  if (!oldPassword || !newPassword) return res.status(400).json({ message: 'Missing fields' });
-  if (newPassword.length < 6) return res.status(400).json({ message: 'Password too short (min 6)' });
 
   const username = req.user?.username;
   if (!username) return res.status(401).json({ message: 'Unauthorized' });

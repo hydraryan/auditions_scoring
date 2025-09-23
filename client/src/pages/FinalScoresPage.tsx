@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 
 type Row = {
   _id: string;
@@ -84,27 +86,24 @@ export default function FinalScoresPage() {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">Final Scores</h2>
         <div className="flex items-center gap-2">
-          <input
-            className="w-64 max-w-[70vw] p-2 bg-neutral-900 border border-neutral-800 rounded"
-            placeholder="Search by name, UID, or contact"
-            value={searchText}
-            onChange={(e) => {
-              const v = (e.target as HTMLInputElement).value;
-              setSearchText(v);
-              setAppliedQuery(v);
-            }}
-          />
+          <div className="w-64 max-w-[70vw]">
+            <Input
+              placeholder="Search by name, UID, or contact"
+              value={searchText}
+              onChange={(e) => {
+                const v = (e.target as HTMLInputElement).value;
+                setSearchText(v);
+                setAppliedQuery(v);
+              }}
+            />
+          </div>
           {appliedQuery && (
-            <button onClick={() => { setAppliedQuery(''); setSearchText(''); }} className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700">Clear</button>
+            <Button variant="secondary" onClick={() => { setAppliedQuery(''); setSearchText(''); }}>Clear</Button>
           )}
-          <div className="text-xs text-neutral-400">{filtered.length} of {rows.length}</div>
-          <button
-            onClick={downloadExcel}
-            disabled={downloading}
-            className="px-3 py-1.5 rounded bg-red-600 hover:bg-red-500 disabled:opacity-60"
-          >
+          <div className="text-xs text-muted">{filtered.length} of {rows.length}</div>
+          <Button onClick={downloadExcel} disabled={downloading} variant="primary">
             {downloading ? 'Preparing…' : 'Download Excel'}
-          </button>
+          </Button>
         </div>
       </div>
       {appliedQuery && (

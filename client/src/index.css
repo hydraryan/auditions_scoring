@@ -4,6 +4,14 @@
 
 :root {
   color-scheme: dark;
+  /* Theme tokens */
+  --bg-app: #0b0b0b;
+  --bg-surface: #0f1115;
+  --bg-muted: #1f2937;
+  --text: #f5f5f5;
+  --text-muted: #9ca3af;
+  --border: #262b36;
+  --accent: #e50914;
 }
 
 body {
@@ -14,6 +22,13 @@ body {
    We scope to .theme-light at the root of ProtectedLayout to avoid affecting Landing/Login. */
 .theme-light {
   color-scheme: light;
+  --bg-app: #ffffff;
+  --bg-surface: #f9fafb;
+  --bg-muted: #f3f4f6;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #e50914;
 }
 .theme-light body {
   /* Do not change global body for landing; ProtectedLayout wrapper carries theme */
@@ -47,6 +62,16 @@ body {
 .theme-light .bg-neutral-800\/50 { background-color: rgba(229, 231, 235, 0.50) !important; }
 .theme-light .bg-netflix-dark { background-color: #ffffff !important; }
 .theme-light mark { background-color: #fde68a; color: #92400e; }
+
+/* Convenience classes mapping tokens (optional) */
+.bg-app { background-color: var(--bg-app); }
+.bg-surface { background-color: var(--bg-surface); }
+.bg-muted { background-color: var(--bg-muted); }
+.text-app { color: var(--text); }
+.text-muted { color: var(--text-muted); }
+.border-app { border-color: var(--border); }
+.text-accent { color: var(--accent); }
+.bg-accent { background-color: var(--accent); }
 
 /* Simple, subtle animations */
 @keyframes float {

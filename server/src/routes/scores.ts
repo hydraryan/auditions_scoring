@@ -5,11 +5,15 @@ import { Round1Score, Round2Score, Round3Score } from '../models/RoundScores';
 import { FinalScore } from '../models/FinalScore';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import XLSX from 'xlsx';
+import { z } from 'zod';
+import { validate } from '../utils/validate';
 
 const router = Router();
 router.use(requireAuth);
 
-router.get('/round/:round', async (req, res) => {
+const roundParams = z.object({ round: z.coerce.number().int().refine((n) => [1, 2, 3].includes(n), 'Invalid round') });
+
+router.get('/round/:round', validate(roundParams, 'params'), async (req, res) => {
   const round = Number(req.params.round) as 1 | 2 | 3;
   const students = await Student.find();
   const roundDocs =
@@ -28,7 +32,15 @@ router.get('/round/:round', async (req, res) => {
   res.json(merged);
 });
 
-router.put('/round/:round/student/:id', async (req: AuthRequest, res) => {
+const scoreParams = z.object({
+  round: z.coerce.number().int().refine((n) => [1, 2, 3].includes(n), 'Invalid round'),
+  id: z.string().min(1),
+});
+
+// accept arbitrary scoring fields but values must be 0..10 integers
+const scoreBody = z.record(z.coerce.number().int().min(0).max(10));
+
+router.put('/round/:round/student/:id', validate(scoreParams, 'params'), validate(scoreBody), async (req: AuthRequest, res) => {
   const round = Number(req.params.round) as 1 | 2 | 3;
   const st = await Student.findById(req.params.id);
   if (!st) return res.status(404).json({ message: 'Student not found' });
@@ -122,7 +134,7 @@ router.put('/round/:round/student/:id', async (req: AuthRequest, res) => {
 });
 
 // Reset current director's scores for a student in a round (makes candidate unscored for that director)
-router.delete('/round/:round/student/:id', async (req: AuthRequest, res) => {
+router.delete('/round/:round/student/:id', validate(scoreParams, 'params'), async (req: AuthRequest, res) => {
   const round = Number(req.params.round) as 1 | 2 | 3;
   const st = await Student.findById(req.params.id);
   if (!st) return res.status(404).json({ message: 'Student not found' });

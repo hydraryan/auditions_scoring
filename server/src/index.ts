@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -19,8 +20,48 @@ if (!process.env.JWT_SECRET || !process.env.ARYAN_PASSWORD || !process.env.KUNAL
 }
 
 const app = express();
-app.use(cors());
-app.use(helmet());
+
+// CORS: allow only configured origins
+const defaultOrigins = ['http://localhost:5173'];
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const origins = allowedOrigins.length ? allowedOrigins : defaultOrigins;
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow same-origin/no-origin (like curl) and configured origins
+      if (!origin || origins.includes(origin)) return callback(null, true);
+      return callback(new Error('CORS: origin not allowed'));
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Helmet with CSP in production
+app.use(
+  helmet({
+    contentSecurityPolicy:
+      process.env.NODE_ENV === 'production'
+        ? {
+            useDefaults: true,
+            directives: {
+              defaultSrc: ["'self'"],
+              baseUri: ["'self'"],
+              objectSrc: ["'none'"],
+              frameAncestors: ["'none'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              fontSrc: ["'self'", 'https:', 'data:'],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+              upgradeInsecureRequests: [],
+            },
+          }
+        : false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -33,9 +74,13 @@ mongoose
   })
   .catch((err) => console.error('MongoDB connection error', err));
 
-app.use('/api/auth', authRouter);
-app.use('/api/students', studentsRouter);
-app.use('/api/scores', scoresRouter);
+// Rate limiting: stricter for auth, general limits for write-heavy routes
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: 'draft-7', legacyHeaders: false });
+const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 200, standardHeaders: 'draft-7', legacyHeaders: false });
+
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/students', writeLimiter, studentsRouter);
+app.use('/api/scores', writeLimiter, scoresRouter);
 app.use('/api/debug', debugRouter);
 app.use('/api/public', publicRouter);
 
