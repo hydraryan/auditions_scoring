@@ -22,7 +22,13 @@ if (!process.env.JWT_SECRET || !process.env.ARYAN_PASSWORD || !process.env.KUNAL
 const app = express();
 
 // CORS: allow only configured origins (supports wildcards like https://*.vercel.app)
-const defaultOrigins = ['http://localhost:5173'];
+// Defaults cover local dev, typical Vercel deployments, and the promooora.in domain used for this app.
+const defaultOrigins = [
+  'http://localhost:5173',
+  'https://*.vercel.app',
+  'https://promooora.in',
+  'https://www.promooora.in',
+];
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((s) => s.trim())
@@ -40,6 +46,8 @@ function wildcardToRegex(pattern: string) {
 }
 
 function isOriginAllowed(origin: string | undefined) {
+  // Escape hatch for incidents: allow all when explicitly enabled
+  if ((process.env.CORS_ALLOW_ALL || '').toLowerCase() === 'true') return true;
   if (!origin) return true; // allow same-origin/no-origin (like curl, mobile apps)
   const o = normalize(origin);
   for (const entry of origins) {
@@ -62,6 +70,10 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (isOriginAllowed(origin)) return callback(null, true);
+      // Helpful log for debugging CORS issues in production
+      try {
+        console.warn('[CORS] Blocked request from origin:', origin, 'Allowed patterns:', origins);
+      } catch {}
       return callback(new Error('CORS: origin not allowed'));
     },
     credentials: true,
