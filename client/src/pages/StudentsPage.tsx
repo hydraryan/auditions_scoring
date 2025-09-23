@@ -1,12 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 
-type Student = { _id?: string; name: string; uid: string; contact: string };
+type Student = { _id?: string; name: string; uid: string; contact: string; scores?: Array<{ round: number; aryan?: any; kunal?: any }>; };
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [form, setForm] = useState<Student>({ name: '', uid: '', contact: '' });
   const [uploading, setUploading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const [colNames, setColNames] = useState<string>('');
   const [colUids, setColUids] = useState<string>('');
@@ -25,6 +26,7 @@ export default function StudentsPage() {
   const load = async () => {
     const res = await api.get('/students');
     setStudents(res.data);
+    setSelectedIds(new Set());
   };
 
   useEffect(() => {
@@ -42,6 +44,24 @@ export default function StudentsPage() {
   const onDelete = async (id: string) => {
     await api.delete(`/students/${id}`);
     await load();
+  };
+
+  const onBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} student(s)? This cannot be undone.`)) return;
+    for (const id of selectedIds) {
+      await api.delete(`/students/${id}`);
+    }
+    await load();
+  };
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   };
 
   
@@ -173,21 +193,48 @@ export default function StudentsPage() {
           />
           <div className="text-xs text-neutral-400">{filtered.length} of {students.length}</div>
         </div>
+        <div className="mb-2 flex items-center gap-2">
+          <button
+            onClick={onBulkDelete}
+            disabled={selectedIds.size === 0}
+            className="px-3 py-1.5 bg-red-700 rounded disabled:opacity-60"
+          >
+            Delete Selected ({selectedIds.size})
+          </button>
+        </div>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left border-b border-neutral-800">
+              <th className="p-2 w-10">Select</th>
               <th className="p-2">Name</th>
               <th className="p-2">UID</th>
               <th className="p-2">Contact</th>
+              <th className="p-2">Scored?</th>
               <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => (
+            {filtered.map((s) => {
+              const scored = Array.isArray(s.scores)
+                ? s.scores.some((r) => (r.aryan?.bodyExpressions > 0 || r.aryan?.confidence > 0 || r.kunal?.dialogue > 0 || r.kunal?.creativity > 0))
+                : false;
+              return (
               <tr key={s._id} className="border-b border-neutral-900">
+                <td className="p-2">
+                  <input
+                    type="checkbox"
+                    checked={s._id ? selectedIds.has(s._id) : false}
+                    onChange={(e) => s._id && toggleSelect(s._id, (e.target as HTMLInputElement).checked)}
+                  />
+                </td>
                 <td className="p-2">{s.name}</td>
                 <td className="p-2">{s.uid}</td>
                 <td className="p-2">{s.contact}</td>
+                <td className="p-2">
+                  <span className={`px-2 py-0.5 rounded text-xs ${scored ? 'bg-green-900/30 text-green-300' : 'bg-neutral-800 text-neutral-300'}`}>
+                    {scored ? 'Scored' : 'Unscored'}
+                  </span>
+                </td>
                 <td className="p-2 flex gap-2">
                   <button className="px-2 py-1 bg-neutral-800 rounded" onClick={() => setForm(s)}>
                     Edit
@@ -197,7 +244,7 @@ export default function StudentsPage() {
                   </button>
                 </td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>

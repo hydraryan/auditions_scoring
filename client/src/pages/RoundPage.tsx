@@ -23,6 +23,7 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
   const [form, setForm] = useState<{ bodyExpressions?: number | ''; confidence?: number | ''; dialogue?: number | ''; creativity?: number | '' }>({});
   const [saving, setSaving] = useState(false);
   const [unscoredOnly, setUnscoredOnly] = useState<boolean>(true);
+  const [scoredOnly, setScoredOnly] = useState<boolean>(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [appliedQuery, setAppliedQuery] = useState<string>('');
@@ -55,11 +56,34 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
 
   // filtered list per toggle
   const filteredStudents = useMemo(() => {
-    const base = unscoredOnly ? students.filter((s) => isUnscoredForDirector(s)) : students;
+    // Helper: whether candidate has any score (>0) recorded for a given round (by any director)
+    const hasAnyScoreForRound = (s: Student, r: 1 | 2 | 3) => {
+      const sc = s.scores.find((x) => x.round === r);
+      if (!sc) return false;
+      const vals = [
+        sc.aryan?.bodyExpressions || 0,
+        sc.aryan?.confidence || 0,
+        sc.kunal?.dialogue || 0,
+        sc.kunal?.creativity || 0,
+      ];
+      return vals.some((v) => typeof v === 'number' && v > 0);
+    };
+
+    let base = students;
+    if (unscoredOnly) {
+      // Show candidates unscored for the current director in the current round
+      base = students.filter((s) => isUnscoredForDirector(s));
+    } else if (scoredOnly) {
+      // For round 2: show candidates scored in round 1
+      // For round 3: show candidates scored in round 2
+      if (round === 2) base = students.filter((s) => hasAnyScoreForRound(s, 1));
+      else if (round === 3) base = students.filter((s) => hasAnyScoreForRound(s, 2));
+      else base = students;
+    }
     const q = appliedQuery.trim().toLowerCase();
     if (!q) return base;
     return base.filter((s) => [s.name, s.uid, s.contact].some((v) => (v || '').toLowerCase().includes(q)));
-  }, [students, unscoredOnly, appliedQuery]);
+  }, [students, unscoredOnly, scoredOnly, appliedQuery]);
 
   // highlight helpers (for search UI)
   const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -426,11 +450,22 @@ export default function RoundPage({ round }: { round: 1 | 2 | 3 }) {
             <input
               type="checkbox"
               checked={unscoredOnly}
-              onChange={(e) => setUnscoredOnly(e.target.checked)}
+              onChange={(e) => { setUnscoredOnly(e.target.checked); if (e.target.checked) setScoredOnly(false); }}
               className="accent-red-600"
             />
             Show unscored only
           </label>
+          {(round === 2 || round === 3) && (
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={scoredOnly}
+                onChange={(e) => { setScoredOnly(e.target.checked); if (e.target.checked) setUnscoredOnly(false); }}
+                className="accent-red-600"
+              />
+              Show scored only
+            </label>
+          )}
           {dirty && <span className="text-red-400">Unsaved changes — save or discard to switch candidate.</span>}
         </div>
       </div>
