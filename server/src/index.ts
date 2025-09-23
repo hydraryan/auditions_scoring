@@ -21,15 +21,47 @@ if (!process.env.JWT_SECRET || !process.env.ARYAN_PASSWORD || !process.env.KUNAL
 
 const app = express();
 
-// CORS: allow only configured origins
+// CORS: allow only configured origins (supports wildcards like https://*.vercel.app)
 const defaultOrigins = ['http://localhost:5173'];
-const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const origins = allowedOrigins.length ? allowedOrigins : defaultOrigins;
+
+function normalize(url: string) {
+  return url.replace(/\/$/, '');
+}
+
+function wildcardToRegex(pattern: string) {
+  // Escape regex special chars, then replace '*' with '.*'
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+  return new RegExp(`^${escaped}$`);
+}
+
+function isOriginAllowed(origin: string | undefined) {
+  if (!origin) return true; // allow same-origin/no-origin (like curl, mobile apps)
+  const o = normalize(origin);
+  for (const entry of origins) {
+    const p = normalize(entry);
+    if (!p.includes('*')) {
+      if (o === p) return true;
+      continue;
+    }
+    try {
+      const rx = wildcardToRegex(p);
+      if (rx.test(o)) return true;
+    } catch {
+      // ignore bad patterns
+    }
+  }
+  return false;
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow same-origin/no-origin (like curl) and configured origins
-      if (!origin || origins.includes(origin)) return callback(null, true);
+      if (isOriginAllowed(origin)) return callback(null, true);
       return callback(new Error('CORS: origin not allowed'));
     },
     credentials: true,
