@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/client';
 
 type Student = { _id?: string; name: string; uid: string; contact: string; scores?: Array<{ round: number; aryan?: any; kunal?: any }>; };
@@ -8,6 +8,7 @@ export default function StudentsPage() {
   const [form, setForm] = useState<Student>({ name: '', uid: '', contact: '' });
   const [uploading, setUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   
   const [colNames, setColNames] = useState<string>('');
   const [colUids, setColUids] = useState<string>('');
@@ -22,6 +23,17 @@ export default function StudentsPage() {
       [s.name, s.uid, s.contact].some((v) => (v || '').toLowerCase().includes(q))
     );
   }, [students, query]);
+
+  // Select-all computed states for the currently filtered list
+  const filteredIds: string[] = useMemo(() => filtered.map((s) => s._id!).filter(Boolean) as string[], [filtered]);
+  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+  const someSelected = filteredIds.some((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someSelected && !allSelected;
+    }
+  }, [someSelected, allSelected]);
 
   const load = async () => {
     const res = await api.get('/students');
@@ -205,7 +217,25 @@ export default function StudentsPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left border-b border-neutral-800">
-              <th className="p-2 w-10">Select</th>
+              <th className="p-2 w-10">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={(e) => {
+                    const checked = (e.target as HTMLInputElement).checked;
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (checked) {
+                        for (const id of filteredIds) next.add(id);
+                      } else {
+                        for (const id of filteredIds) next.delete(id);
+                      }
+                      return next;
+                    });
+                  }}
+                />
+              </th>
               <th className="p-2">Name</th>
               <th className="p-2">UID</th>
               <th className="p-2">Contact</th>
