@@ -10,6 +10,44 @@ body {
   @apply bg-netflix-dark text-white;
 }
 
+/* Dashboard-only light theme overrides
+   We scope to .theme-light at the root of ProtectedLayout to avoid affecting Landing/Login. */
+.theme-light {
+  color-scheme: light;
+}
+.theme-light body {
+  /* Do not change global body for landing; ProtectedLayout wrapper carries theme */
+}
+.theme-light .bg-black { background-color: #ffffff !important; }
+.theme-light .text-white { color: #111827 !important; }
+.theme-light .text-neutral-400 { color: #6b7280 !important; }
+.theme-light .text-neutral-500 { color: #6b7280 !important; }
+.theme-light .text-neutral-300 { color: #374151 !important; }
+.theme-light .text-neutral-200 { color: #1f2937 !important; }
+.theme-light .text-neutral-100 { color: #111827 !important; }
+.theme-light .bg-neutral-950 { background-color: #f9fafb !important; }
+.theme-light .bg-neutral-900 { background-color: #f3f4f6 !important; }
+.theme-light .bg-neutral-800 { background-color: #e5e7eb !important; }
+.theme-light .border-neutral-800 { border-color: #e5e7eb !important; }
+.theme-light .border-neutral-900 { border-color: #e5e7eb !important; }
+.theme-light .border-neutral-700 { border-color: #e5e7eb !important; }
+.theme-light .divide-neutral-800 > :not([hidden]) ~ :not([hidden]) { --tw-divide-opacity: 1; border-color: rgb(229 231 235 / var(--tw-divide-opacity)) !important; }
+.theme-light .divide-neutral-900 > :not([hidden]) ~ :not([hidden]) { --tw-divide-opacity: 1; border-color: rgb(229 231 235 / var(--tw-divide-opacity)) !important; }
+.theme-light .hover\:bg-neutral-900:hover { background-color: #eef2f7 !important; }
+.theme-light .hover\:bg-neutral-800:hover { background-color: #eef2f7 !important; }
+.theme-light .hover\:bg-neutral-700:hover { background-color: #f3f4f6 !important; }
+.theme-light .bg-neutral-700 { background-color: #d1d5db !important; }
+.theme-light .bg-neutral-950\/60 { background-color: rgba(249, 250, 251, 0.60) !important; }
+.theme-light .bg-neutral-950\/50 { background-color: rgba(249, 250, 251, 0.50) !important; }
+.theme-light .bg-neutral-900\/70 { background-color: rgba(243, 244, 246, 0.70) !important; }
+.theme-light .bg-neutral-900\/60 { background-color: rgba(243, 244, 246, 0.60) !important; }
+.theme-light .bg-neutral-900\/50 { background-color: rgba(243, 244, 246, 0.50) !important; }
+.theme-light .bg-neutral-800\/70 { background-color: rgba(229, 231, 235, 0.70) !important; }
+.theme-light .bg-neutral-800\/60 { background-color: rgba(229, 231, 235, 0.60) !important; }
+.theme-light .bg-neutral-800\/50 { background-color: rgba(229, 231, 235, 0.50) !important; }
+.theme-light .bg-netflix-dark { background-color: #ffffff !important; }
+.theme-light mark { background-color: #fde68a; color: #92400e; }
+
 /* Simple, subtle animations */
 @keyframes float {
   0% { transform: translateY(0px); }

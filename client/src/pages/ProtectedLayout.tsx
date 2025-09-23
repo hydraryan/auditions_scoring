@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +12,23 @@ export default function ProtectedLayout() {
   const [busy, setBusy] = useState(false);
   const location = useLocation();
   const isDashboard = location.pathname === '/app';
+  // theme: dark by default, dashboard-only
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('dashboard-theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dashboard-theme', theme);
+    } catch {}
+  }, [theme]);
+
+  const themeClass = useMemo(() => (theme === 'light' ? 'theme-light' : 'theme-dark'), [theme]);
 
   if (!user) {
     navigate('/login');
@@ -21,7 +38,7 @@ export default function ProtectedLayout() {
   const name = user.username;
 
   return (
-  <div className="h-screen bg-black text-white flex overflow-hidden">
+  <div className={`h-screen flex overflow-hidden ${themeClass} ${theme === 'light' ? 'bg-white text-neutral-900' : 'bg-black text-white'}`}>
       {/* Sidebar */}
       <aside className="w-64 hidden sm:flex sm:flex-col bg-neutral-950 border-r border-neutral-800">
         <div className="p-4 border-b border-neutral-800">
@@ -101,6 +118,13 @@ export default function ProtectedLayout() {
         </nav>
         <div className="p-3 border-t border-neutral-800 space-y-2">
           <button
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            className="w-full px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
+            title="Toggle light/dark theme (dashboard only)"
+          >
+            <span className="mr-1">🌓</span> {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button
             onClick={() => setOpen(true)}
             className="w-full px-3 py-2 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
           >
@@ -122,6 +146,13 @@ export default function ProtectedLayout() {
             <span className="text-neutral-400">Welcome,</span> <span className="font-semibold">{name}</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+              className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
+              title="Toggle light/dark"
+            >
+              🌓 {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
             <button
               onClick={() => setOpen(true)}
               className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
